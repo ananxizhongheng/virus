@@ -1,8 +1,9 @@
 This directory contains scripts related to the manuscript "Diversity and ecological functions of viruses inhabiting the oil reservoirs".
 
-The scripts of metagenomic analysis are placed in "Pipeline" directory. There are two main modules in the pipeline, the construction of the viral catalog and metagenome-assembled genomes. The processes before assembly are same.
+The scripts (ORIGC analysis pipeline.sh) of metagenomic analysis are placed in "Pipeline" directory. There are two main modules in the pipeline, the construction of the viral catalog and metagenome-assembled genomes. The processes before assembly are same.
 
 ######Assembly of reads into contigs
+------------------------------------
 ##1. Trim
 The metagenomic raw reads were examined using FastQC v0.11.9 (http://www.bioinformatics.babraham.ac.uk/projects/fastqc/), low-quality sequences, primers, and adaptors were trimmed using the Trimmomatic v0.39.
 java -jar trimmomatic-0.39.jar PE -threads 8 ./sample_1.fastq.gz ./sample_2.fastq.gz ./sample_1.qc.fq.gz ./sample_unpair_1.qc.fq.gz ./sample_2.qc.fq.gz ./sample_unpair_2.qc.fq.gz ILLUMINACLIP:TruSeq3-PE-2.fa:2:30:10 LEADING:2 TRAILING:2 SLIDINGWINDOW:4:20 MINLEN:50
@@ -16,7 +17,8 @@ megahit -1 sample _1.qc.fq.gz -2 sample _2.qc.fq.gz -o sample _megahit_output -t
 #2.2 For small data (<20G), the trimmed reads were independently assembled using metaspades.py.
 metaspades.py -k 21,33,55,77,99,127 -1 sample_1.qc.fq.gz -2 sample_2.qc.fq.gz -o sample_spades_output -t 32 -m 2000
 
-####Generation of prokaryotic metagenome-assembled genomes (MAGs).
+####Generation of prokaryotic metagenome-assembled genomes (MAGs)
+------------------------------------------------------------------
 ##1. bin
 For each assembly, contigs were binned using the binning module and consolidated into a final bin set using the Bin_refinement module within metaWRAP v1.2.1.
 ##1.1 metawrap binning
@@ -34,13 +36,16 @@ The taxonomy of each MAG was assigned using GTDB-Tk v1.5.0
 gtdbtk classify_wf --genome_dir ./00MAG_50_10/ --out_dir ./ --extension fa --prefix bin --cpus 32
 
 ####The maximum-likelihood phylogenetic trees of MAGs
+-----------------------------------------------------
 The maximum-likelihood phylogenetic trees of MAGs were constructed based on a concatenated dataset of 400 universally conserved marker proteins using PhyloPhlAn v3.0.64
 phylophlan -i ./ 01drep95_prodigal -d /user/db/phylophlan --diversity high -f my_genome_cell.cfg --accurate -o ./drep95-tree --nproc 15 --min_num_markers 80
 
 ###The RPKM values of the MAGs were calculated using CoverM v0.6.1
+------------------------------------------------------------------
 coverm genome --coupled sample_1.fastq.gz sample_2.fastq.gz -d ./dereplicated_genomes -x fa -t 10 --min-read-percent-identity 0.95 --min-read-aligned-percent 0.75 --contig-end-exclusion 0 -m rpkm -o sample_rpkm.txt
 
 ### Functional annotation of MAGs
+---------------------------------
 Open reading frames (ORFs) of these MAGs were predicted with Prodigal v2.6.3
 prodigal -a ./MAG_protein_seq.faa -d ./MAG_nucleotide_seq.fasta -o ./MAG_genes.gff -s ./MAG_poteintial.stat -i ./MAG.fna -p meta
 
@@ -48,6 +53,7 @@ The predicted ORFs were annotated using eggNOG-mapper v2.0.1
 emapper.py -i ./MAG_protein_seq.faa -o ./MAG_out -m diamond --cpu 32
 
 ####Phylogenetic analysis of DsrAB sequences
+--------------------------------------------
 ##1. muscle
 The DsrAB sequences were aligned using MUSCLE v3.8 with default parameters.
 muscle -align dsrAB.fasta -output ./muscle_dsrAB.aln
@@ -61,16 +67,18 @@ The concatenated DsrAB tree was constructed using RAxML
 raxmlHPC-AVX -s trimal_dsrAB.phy -N 100 -n dsrABraxml -f a -p 12345 -x 12345 -m PROTGAMMAIJTT -T 50
 
 ###Viral contig identification
+------------------------------
 Viral contigs were recovered from assembled contigs using VirSorter v2.1 and DeepVirFinder v1.0, Only viral contigs ≥ 10 kb were retained.
 
 ##1. DeepVirFinder v1.0
 python /home/user/App/DeepVirFinder/dvf.py -i ./samplecontigs.fasta -l 10000 -c 10 -o ./dvf/
-The identified viral contigs by DeepVirFinder v1.0 are filtered using R code.
+The identified viral contigs by DeepVirFinder v1.0 are filtered using R code (00posdvfR.R).
 ##2. VirSorter v2.1
 python /home/wxl/App/DeepVirFinder/dvf.py -i ./samplecontigs.fasta -l 10000 --exclude-lt2gene -c 10 -o ./spades/
-The identified viral contigs from each sample by DeepVirFinder v1.0 and VirSorter v2.1 were aggregated using python script. The identified viral contigs from all samples were first pooled into a single FASTA file, namely ORIGC_viralcontigs_10K.fasta 
+The identified viral contigs from each sample by DeepVirFinder v1.0 and VirSorter v2.1 were aggregated using python script (viral_catalog_02dvf-vs2-for-spades.py, viral_catalog_03dvf-vs2bingji-for-spades.py). The identified viral contigs from all samples were first pooled into a single FASTA file, namely ORIGC_viralcontigs_10K.fasta 
 
 ###Viral contig dereplication, virus operational taxonomic unit (vOTU) clustering, and calculation of abundances
+----------------------------------------------------------------------------------------------------------------
 The identified viral contigs from each sample were clustered into virus operational taxonomic units (vOTUs) using the parameters 95% average nucleotide identity (ANI) and 85% alignment fraction of the smallest scaffolds based on the scripts (https://bitbucket.org/berkeleylab/checkv/src/master/) provided in CheckV v0.8.1
 ##1. makeblastdb
 makeblastdb -in ./ORIGC_viralcontigs_10K.fasta -dbtype nucl -out ./oil_vdb
@@ -90,6 +98,7 @@ seqkit grep --pattern-file ./vOTU_name.txt ./ORIGC_viralcontigs_10K.fasta > ./vO
 coverm contig --coupled ./sample_1.fastq.gz ./sample_2.fastq.gz -r ./vOTU.fasta -t 10 --min-read-percent-identity 0.95 --min-read-aligned-percent 0.75 --contig-end-exclusion 0 -m rpkm -o sample_rpkm.txt
 
 ####Viral lifestyle
+-------------------
 Viral lifestyle was predicted by both VIBRANT v1.2.1 and CheckV v0.8.1, while the remaining vOTUs with at least 90% completeness that display no prophage signals or lysogeny-specific genes were considered as potential virulent viruses.
 ##1. VIBRANT v1.2.1
 python3 VIBRANT_run.py -i ./ORIGC_viralcontigs_10K.fasta -t 5
@@ -98,6 +107,7 @@ python3 VIBRANT_run.py -i ./ORIGC_viralcontigs_10K.fasta -t 5
 checkv end_to_end ORIGC_viralcontigs_10K.fasta ./checkv_output_directory -t 10 -d /media/user/DataBank/database/checkv-db-v1.0
 
 #### Viral taxonomic assignments, viral function annotation, and identification of auxiliary metabolic genes (vAMGs)
+--------------------------------------------------------------------------------------------------------------------
 ##1. Viral taxonomic assignments
 To understand the taxonomy of vOTUs, we used PhaGCN2.0 with the latest ICTV classification to explore the taxonomic affiliation of vOTUs at the family level.
 python run_Speed_up.py --contigs ORIGC_viralcontigs_10K.fasta --len 1700
@@ -114,20 +124,22 @@ DRAM-v.py annotate -i final-viral-combined-for-dramv.fa -v viral-affi-contigs-fo
 DRAM-v.py distill -i ./annotation/annotations.tsv -o ./annotation/distilled
 
 #### Network analysis
+---------------------
 Protein-sharing network analysis of vOTUs was performed by vConTACT v.2.0.
 vcontact2 --raw-proteins ./refoil_vprotein_10K_vcontact2_newID.fasta --rel-mode Diamond --proteins-fp ./refoil_vprotein_10K_vcontact2_newID_name.csv --pcs-mode MCL --vcs-mode ClusterONE --c1-bin /user/miniconda3/envs/vContact2/bin/cluster_one-1.0.jar --output-dir vcontact2v --threads 72 --db 'ProkaryoticViralRefSeq201-Merged'
 
 #### Virus-host prediction
+--------------------------
 CRISPR spacer and tRNA were used to predict virus-host interactions.
 ##1. CRISPR predict
 java -cp metaCRT.jar crt ./samplecontigs.fasta ./samplecrispr.txt
-Then use R code to filter CRISPR spacer
+Then use R code to filter CRISPR spacer (crisper_spacer_found_cycle_use_viralmeta.R)
 ##2. tRNA predict
 aragorn -t -w -o ./samplevtRNAw.txt ./sample_viralcontigs_10K.fasta
 aragorn -t -fons -o ./samplevtRNAfons.txt ./sample_viralcontigs_10K.fasta
-Then use python script to merge.
+Then use python script to merge (tRNAmerge.py).
 ##3. Fuzznuc
 fuzznuc -sequence sample_viralcontigs_10K.fasta -pattern @samplecontigs-crt-clean.txt -outfile ./samplecrisprinv -complement T
 fuzznuc -sequence sample_contigs.fasta -pattern @samplevtRNAclean.txt -outfile ./sampletrnaim -complement T
-Then use python script to merge.
+Then use python script to merge (fuzznuc_crisper_trna.py).
 
