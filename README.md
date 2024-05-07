@@ -1,4 +1,4 @@
-This directory contains scripts related to the manuscript "Diversity and ecological functions of viruses inhabiting the oil reservoirs".
+![image](https://github.com/ananxizhongheng/virus/assets/62454930/33d7a83d-846e-4dec-abb7-7cb8bb4e92a5)This directory contains scripts related to the manuscript "Diversity and ecological functions of viruses inhabiting the oil reservoirs".
 
 The scripts (ORIGC analysis pipeline.sh) of metagenomic analysis are placed in "Pipeline" directory. There are two main modules in the pipeline, the construction of the viral catalog and metagenome-assembled genomes. The processes before assembly are same.
 
@@ -73,8 +73,10 @@ Viral contigs were recovered from assembled contigs using VirSorter v2.1 and Dee
 ##1. DeepVirFinder v1.0
 python /home/user/App/DeepVirFinder/dvf.py -i ./samplecontigs.fasta -l 10000 -c 10 -o ./dvf/
 The identified viral contigs by DeepVirFinder v1.0 are filtered using R code (00posdvfR.R).
+
 ##2. VirSorter v2.1
-python /home/wxl/App/DeepVirFinder/dvf.py -i ./samplecontigs.fasta -l 10000 --exclude-lt2gene -c 10 -o ./spades/
+virsorter run --exclude-lt2gene -i ./samplecontigs.fasta -w ./vs2/sample_virsorter --min-length 10000 --min-score 0.5 -j 10 all
+
 The identified viral contigs from each sample by DeepVirFinder v1.0 and VirSorter v2.1 were aggregated using python script (viral_catalog_02dvf-vs2-for-spades.py, viral_catalog_03dvf-vs2bingji-for-spades.py). The identified viral contigs from all samples were first pooled into a single FASTA file, namely ORIGC_viralcontigs_10K.fasta 
 
 ###Viral contig dereplication, virus operational taxonomic unit (vOTU) clustering, and calculation of abundances
@@ -109,8 +111,12 @@ checkv end_to_end ORIGC_viralcontigs_10K.fasta ./checkv_output_directory -t 10 -
 #### Viral taxonomic assignments, viral function annotation, and identification of auxiliary metabolic genes (vAMGs)
 --------------------------------------------------------------------------------------------------------------------
 ##1. Viral taxonomic assignments
-To understand the taxonomy of vOTUs, we used PhaGCN2.0 with the latest ICTV classification to explore the taxonomic affiliation of vOTUs at the family level.
+To understand the taxonomy of vOTUs, as suggested previously72, we used PhaGCN2.0 and geNomad v1.9 with the ICTV classification to explore the taxonomic affiliation of vOTUs at the family level. The results from these two tools were considered; for a given genome, (1) it was assigned as ‘unclassified’ if both tools failed to assign it, or it was assigned to different taxa, and (2) it was assigned to the taxonomic level determined by one of the tools if the other failed to assign. 
+##1. PhaGCN2.0
 python run_Speed_up.py --contigs ORIGC_viralcontigs_10K.fasta --len 1700
+
+##2. geNomad v1.9
+genomad annotate --cleanup --splits 10 ORIGC_viralcontigs_10K.fasta genomad_output genomad_db
 
 ##2. Viral function annotation
 Open reading frames (ORFs) of vOTUs were predicted with Prodigal v2.6.3, to understand the function of vOTUs, the predicted viral proteins were first merged and dereplicated using CD-HIT v4.7. The dereplicated viral proteins were assigned to the eggNOG Orthologous Groups database (version 5.0) using eggNOG-mapper v2.0.1.
